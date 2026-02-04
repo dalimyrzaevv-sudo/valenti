@@ -288,11 +288,15 @@
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d', { alpha: true });
   let DPR = Math.max(1, window.devicePixelRatio || 1);
+  let viewW = innerWidth;
+  let viewH = innerHeight;
 
   function resize() {
     DPR = Math.max(1, window.devicePixelRatio || 1);
     const vw = window.visualViewport ? window.visualViewport.width : innerWidth;
     const vh = window.visualViewport ? window.visualViewport.height : innerHeight;
+    viewW = vw;
+    viewH = vh;
     canvas.width = Math.round(vw * DPR);
     canvas.height = Math.round(vh * DPR);
     canvas.style.width = vw + 'px';
@@ -336,10 +340,10 @@
 
   // Player state
   const player = {
-    x: innerWidth / 2,
-    y: innerHeight * 0.75,
-    tx: innerWidth / 2,
-    ty: innerHeight / 2,
+    x: viewW / 2,
+    y: viewH * 0.75,
+    tx: viewW / 2,
+    ty: viewH / 2,
     r: config.heartSize * 0.55,
     wobble: 0
   };
@@ -387,8 +391,8 @@
   // Background floating hearts (soft, decorative)
   function spawnFloating(){
     floating.push({
-      x: rand(0, innerWidth),
-      y: rand(0, innerHeight),
+      x: rand(0, viewW),
+      y: rand(0, viewH),
       s: rand(8, 28),
       vy: rand(0.1, 0.5),
       wob: rand(0.001, 0.008),
@@ -402,8 +406,8 @@
   function spawnHeart(){
     if(hearts.length >= config.maxHeartsOnScreen) return;
     hearts.push({
-      x: rand(60, innerWidth-60),
-      y: rand(60, innerHeight/2),
+      x: rand(60, viewW-60),
+      y: rand(60, viewH/2),
       s: rand(config.heartSize*0.8, config.heartSize*1.4),
       vx: rand(-0.18,0.18),
       vy: rand(0.02,0.14),
@@ -418,8 +422,8 @@
     if(badEmotions.length >= config.maxBadOnScreen) return;
     const emojis = ['😈','😒','😢','😡','😤','🙃'];
     badEmotions.push({
-      x: rand(60, innerWidth-60),
-      y: rand(60, innerHeight/2),
+      x: rand(60, viewW-60),
+      y: rand(60, viewH/2),
       s: rand(config.badSize*0.8, config.badSize*1.4),
       vx: rand(-0.25,0.25),
       vy: rand(0.04,0.16),
@@ -432,9 +436,9 @@
   // Spawn an obstacle (грусть/сомнения)
   function spawnObstacle(){
     const side = Math.random() < 0.5 ? -1 : 1;
-    const y = rand(80, innerHeight - 160);
+    const y = rand(80, viewH - 160);
     obstacles.push({
-      x: side === -1 ? -60 : innerWidth + 60,
+      x: side === -1 ? -60 : viewW + 60,
       y,
       s: rand(config.obstacleSize*0.9, config.obstacleSize*1.3),
       vx: side === -1 ? rand(0.4, 1.2) : -rand(0.4, 1.2), // moves across screen towards opposite side
@@ -522,7 +526,7 @@
       f.y -= f.vy;
       f.phase += f.wob * dt;
       f.x += Math.sin(f.phase) * 0.12;
-      if(f.y < -40) { f.y = innerHeight + 40; f.x = rand(0, innerWidth); }
+      if(f.y < -40) { f.y = viewH + 40; f.x = rand(0, viewW); }
     });
 
     // Update hearts (collectibles)
@@ -532,10 +536,10 @@
       h.y += h.vy * dt + Math.sin(h.phase)*0.08;
       h.rotate += 0.001*dt;
       // wrap horizontally
-      if(h.x < -40) h.x = innerWidth + 40;
-      if(h.x > innerWidth + 40) h.x = -40;
+      if(h.x < -40) h.x = viewW + 40;
+      if(h.x > viewW + 40) h.x = -40;
       // remove if goes too low or collected
-      if(h.y > innerHeight + 80) hearts.splice(i,1);
+      if(h.y > viewH + 80) hearts.splice(i,1);
     });
 
     // Update bad emotions
@@ -544,9 +548,9 @@
       b.x += b.vx * dt;
       b.y += b.vy * dt + Math.sin(b.phase)*0.1;
       b.rotate += 0.0012*dt;
-      if(b.x < -40) b.x = innerWidth + 40;
-      if(b.x > innerWidth + 40) b.x = -40;
-      if(b.y > innerHeight + 80) badEmotions.splice(i,1);
+      if(b.x < -40) b.x = viewW + 40;
+      if(b.x > viewW + 40) b.x = -40;
+      if(b.y > viewH + 80) badEmotions.splice(i,1);
     });
 
     // Update obstacles
@@ -557,7 +561,7 @@
       // small up-down
       o.y += Math.sin(o.anger) * 0.06;
       // remove off-screen
-      if(o.x < -120 || o.x > innerWidth + 120) obstacles.splice(idx,1);
+      if(o.x < -120 || o.x > viewW + 120) obstacles.splice(idx,1);
     });
 
     // Update particles
@@ -637,14 +641,14 @@
 
   // Draw everything
   function draw(){
-    ctx.clearRect(0,0,innerWidth,innerHeight);
+    ctx.clearRect(0,0,viewW,viewH);
 
     // gentle vignette gradient
-    const g = ctx.createLinearGradient(0,0,0,innerHeight);
+    const g = ctx.createLinearGradient(0,0,0,viewH);
     g.addColorStop(0, 'rgba(255,245,247,0.9)');
     g.addColorStop(1, 'rgba(255,240,243,0.9)');
     ctx.fillStyle = g;
-    ctx.fillRect(0,0,innerWidth,innerHeight);
+    ctx.fillRect(0,0,viewW,viewH);
 
     // background floating hearts (soft, low alpha)
     floating.forEach(f=>{
@@ -776,7 +780,7 @@
 
     // falling stars (top to bottom)
     for(let i=0;i<36;i++){
-      spawnParticle(rand(0, innerWidth), rand(-innerHeight, -20), {
+      spawnParticle(rand(0, viewW), rand(-viewH, -20), {
         vx: rand(-0.4,0.4),
         vy: rand(1.8,3.4),
         life: rand(900,1800),
@@ -843,7 +847,7 @@
   window.addEventListener('keydown', (e)=>{
     if(e.key === ' ' || e.key === 'Enter'){
       // jump to center to mimic a tap
-      player.tx = innerWidth/2; player.ty = innerHeight/2;
+      player.tx = viewW/2; player.ty = viewH/2;
     }
   });
 
@@ -854,7 +858,7 @@
   });
 
   // Simple initial hint: set player target to middle top so it floats center
-  player.tx = innerWidth/2; player.ty = innerHeight*0.4;
+  player.tx = viewW/2; player.ty = viewH*0.4;
 })();
 </script>
 </body>
