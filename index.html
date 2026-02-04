@@ -743,7 +743,7 @@
   const signature = document.getElementById('signature');
   const transition = document.getElementById('transition');
   const lovePage = document.getElementById('lovePage');
-  yesBtn.addEventListener('click', ()=> {
+  function handleYes(){
     // hide button to prevent re-clicks
     yesBtn.disabled = true;
     // create burst of heart particles from center of card
@@ -809,7 +809,9 @@
       lovePage.setAttribute('aria-hidden','false');
       setTimeout(()=> transition.classList.remove('show'), 520);
     }, 650);
-  });
+  }
+  yesBtn.addEventListener('click', handleYes);
+  yesBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); handleYes(); }, {passive:false});
 
   // Make "No" button run away and never be clickable
   function moveNoButton(){
