@@ -69,6 +69,7 @@
     margin:10px auto 6px;
     font-weight:800;
     font-size:18px;
+    line-height:1.2;
     color:#8a1f3a;
     background:linear-gradient(90deg, rgba(255,235,242,0.9), rgba(255,245,249,0.9));
     padding:10px 14px;
@@ -290,20 +291,33 @@
   let DPR = Math.max(1, window.devicePixelRatio || 1);
   let viewW = innerWidth;
   let viewH = innerHeight;
+  let player = null;
 
   function resize() {
     DPR = Math.max(1, window.devicePixelRatio || 1);
-    const vw = window.visualViewport ? window.visualViewport.width : innerWidth;
-    const vh = window.visualViewport ? window.visualViewport.height : innerHeight;
-    viewW = vw;
-    viewH = vh;
-    canvas.width = Math.round(vw * DPR);
-    canvas.height = Math.round(vh * DPR);
-    canvas.style.width = vw + 'px';
-    canvas.style.height = vh + 'px';
+    const vv = window.visualViewport;
+    const rawW = vv && vv.width ? vv.width : innerWidth;
+    const rawH = vv && vv.height ? vv.height : innerHeight;
+    viewW = Math.max(1, rawW);
+    viewH = Math.max(1, rawH);
+    canvas.width = Math.round(viewW * DPR);
+    canvas.height = Math.round(viewH * DPR);
+    canvas.style.width = viewW + 'px';
+    canvas.style.height = viewH + 'px';
     ctx.setTransform(DPR,0,0,DPR,0,0);
+    // keep player in bounds after viewport change
+    if(player){
+      player.x = Math.min(viewW - 20, Math.max(20, player.x));
+      player.y = Math.min(viewH - 20, Math.max(20, player.y));
+      player.tx = Math.min(viewW - 20, Math.max(20, player.tx));
+      player.ty = Math.min(viewH - 20, Math.max(20, player.ty));
+    }
   }
   addEventListener('resize', resize);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', resize);
+    window.visualViewport.addEventListener('scroll', resize);
+  }
   resize();
 
   // Game configuration
@@ -339,7 +353,7 @@
   let won = false;
 
   // Player state
-  const player = {
+  player = {
     x: viewW / 2,
     y: viewH * 0.75,
     tx: viewW / 2,
