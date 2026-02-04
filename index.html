@@ -474,9 +474,9 @@
     player.tx = px;
     player.ty = py;
   }
-  window.addEventListener('pointerdown', onPointer, {passive:false});
-  window.addEventListener('touchstart', onPointer, {passive:false});
-  window.addEventListener('mousedown', onPointer);
+  canvas.addEventListener('pointerdown', onPointer, {passive:false});
+  canvas.addEventListener('touchstart', onPointer, {passive:false});
+  canvas.addEventListener('mousedown', onPointer);
 
   // Simple collision detection (circle)
   function circleCollide(x1,y1,r1,x2,y2,r2){
