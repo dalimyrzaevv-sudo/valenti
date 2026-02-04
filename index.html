@@ -86,6 +86,8 @@
     box-shadow:0 6px 20px rgba(255,80,120,0.18); cursor:pointer; font-size:16px;
     transition:transform 180ms ease, box-shadow 180ms ease;
     min-width:112px;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
   .btn:not(.no):hover{transform:translateY(-1px); box-shadow:0 10px 24px rgba(255,80,120,0.22);}
   .btn.no {
@@ -810,8 +812,13 @@
       setTimeout(()=> transition.classList.remove('show'), 520);
     }, 650);
   }
-  yesBtn.addEventListener('click', handleYes);
-  yesBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); handleYes(); }, {passive:false});
+  function activateYes(e){
+    if(e) e.preventDefault();
+    handleYes();
+  }
+  yesBtn.addEventListener('click', activateYes);
+  yesBtn.addEventListener('pointerup', activateYes, {passive:false});
+  yesBtn.addEventListener('touchend', activateYes, {passive:false});
 
   // Make "No" button run away and never be clickable
   function moveNoButton(){
