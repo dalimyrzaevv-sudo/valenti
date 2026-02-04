@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Мини-игра — Валентинка</title>
+<style>
+  :root{
+    --bg1:#fff0f3;
+    --bg2:#fff6f8;
+    --accent:#ff6b8a;
+    --accent-soft:#ffd6e0;
+    --text:#6b2230;
+    --muted:#b66b7a;
+    --title-font:"Georgia","Times New Roman",serif;
+    --body-font:"Trebuchet MS","Verdana",sans-serif;
+  }
+  html,body{height:100%;margin:0;font-family:var(--body-font),system-ui,sans-serif;}
+  body{
+    background:linear-gradient(180deg,var(--bg1),var(--bg2));
+    overflow:hidden;
+    color:var(--text);
+    min-height:100svh;
+    -webkit-text-size-adjust:100%;
+    overscroll-behavior:none;
+  }
+
+  /* Canvas fills the screen */
+  canvas{display:block; width:100vw; height:100svh; touch-action:none;}
+
+  /* UI: top bar counter */
+  .ui {
+    position:fixed; left:calc(12px + env(safe-area-inset-left)); top:calc(12px + env(safe-area-inset-top)); z-index:20;
+    background:rgba(255,255,255,0.6);
+    backdrop-filter:blur(6px);
+    padding:8px 12px; border-radius:14px; box-shadow:0 6px 18px rgba(200,100,140,0.08);
+    display:flex; gap:12px; align-items:center; font-weight:600;
+  }
+  .ui .target{
+    font-size:14px; color:var(--muted);
+  }
+  .ui .score{
+    font-size:18px; color:var(--accent);
+    display:flex;align-items:center;gap:8px;
+  }
+  .heart-icon{width:18px;height:18px;display:inline-block;background:radial-gradient(circle at 30% 30%, #fff6f8 0%, #ff8aa8 30%, #ff5a7d 70%);clip-path:path('M10 3c-1.6-2.2-4.8-2.2-6.4 0C1.4 5.4 1.9 8.3 3.8 10L10 16l6.2-6c1.9-1.7 2.4-4.6-.2-7z');border-radius:4px;}
+
+  /* Final modal */
+  .modal {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    z-index:40; pointer-events:none;
+    padding:16px; box-sizing:border-box;
+  }
+  .card {
+    width:min(520px,92vw); max-width:92vw;
+    background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,245,247,0.98));
+    border-radius:20px; padding:24px; box-shadow:0 18px 60px rgba(200,90,140,0.18);
+    text-align:center; transform:scale(0.9); opacity:0; transition:all 420ms cubic-bezier(.2,.9,.2,1);
+    pointer-events:auto;
+    border:1px solid rgba(255,190,210,0.5);
+    max-height:calc(100svh - 48px);
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .card.show{transform:scale(1); opacity:1;}
+  .card h1{font-size:20px;margin:8px 0;color:#7a2030}
+  .card p{margin:8px 0;color:#6b2d3b}
+  .question{
+    margin:10px auto 6px;
+    font-weight:800;
+    font-size:18px;
+    color:#8a1f3a;
+    background:linear-gradient(90deg, rgba(255,235,242,0.9), rgba(255,245,249,0.9));
+    padding:10px 14px;
+    border-radius:14px;
+    display:inline-block;
+    box-shadow:0 8px 20px rgba(200,90,140,0.12);
+  }
+  .cta {
+    margin-top:14px; display:flex; gap:12px; justify-content:center; align-items:center;
+    flex-wrap:wrap;
+  }
+  .btn {
+    background:linear-gradient(180deg,var(--accent),#ff3f6a);
+    color:white; border:none; padding:10px 16px; border-radius:12px; font-weight:700;
+    box-shadow:0 6px 20px rgba(255,80,120,0.18); cursor:pointer; font-size:16px;
+    transition:transform 180ms ease, box-shadow 180ms ease;
+    min-width:112px;
+  }
+  .btn:not(.no):hover{transform:translateY(-1px); box-shadow:0 10px 24px rgba(255,80,120,0.22);}
+  .btn.no {
+    background:linear-gradient(180deg,#bfc3d1,#8b90a1);
+    position:relative;
+    transition:transform 140ms ease;
+  }
+  .small {
+    font-size:13px; color:var(--muted);
+  }
+
+  /* footer credit that appears after fireworks */
+  .signature {
+    position:fixed; bottom:calc(18px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:50;
+    background:linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,240,242,0.9));
+    padding:8px 12px; border-radius:14px; box-shadow:0 6px 18px rgba(200,100,140,0.06); pointer-events:none;
+    font-weight:600; color:var(--muted); display:none;
+  }
+  .signature.show{display:block; animation:fadeUp 700ms ease both;}
+  @keyframes fadeUp{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+  /* Transition + Love Page */
+  .transition {
+    position:fixed; inset:0; background:rgba(18,10,14,0.85); z-index:60;
+    opacity:0; pointer-events:none; transition:opacity 520ms ease;
+  }
+  .transition.show{opacity:1; pointer-events:auto;}
+  .love-page{
+    position:fixed; inset:0; z-index:55;
+    background:
+      radial-gradient(1200px 500px at 15% 0%, rgba(255,255,255,0.6), rgba(255,255,255,0)),
+      radial-gradient(900px 600px at 85% 0%, rgba(255,245,250,0.75), rgba(255,255,255,0)),
+      linear-gradient(180deg,#ffeef4 0%, #ffe1ec 45%, #ffd5e5 100%);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity 520ms ease;
+    padding:calc(22px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left));
+    overflow:auto;
+  }
+  .love-page.show{opacity:1; pointer-events:auto;}
+  .love-orb{
+    position:absolute; border-radius:50%;
+    filter:blur(2px);
+    opacity:0.7;
+    animation:orbFloat 10s ease-in-out infinite;
+  }
+  .orb-1{width:180px;height:180px;left:-40px;top:10%;background:rgba(255,210,225,0.8)}
+  .orb-2{width:220px;height:220px;right:-60px;top:20%;background:rgba(255,230,240,0.8);animation-delay:1.2s}
+  .orb-3{width:160px;height:160px;right:10%;bottom:-40px;background:rgba(255,200,220,0.7);animation-delay:2.4s}
+  .love-card{
+    width:min(920px,94vw);
+    background:linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,245,249,0.9));
+    border-radius:24px; padding:30px; box-shadow:0 18px 60px rgba(200,90,140,0.18);
+    text-align:center; backdrop-filter:blur(6px);
+    border:1px solid rgba(255,200,220,0.6);
+    position:relative;
+  }
+  .love-card::before{
+    content:"";
+    position:absolute; inset:-1px;
+    border-radius:24px;
+    background:linear-gradient(120deg, rgba(255,210,225,0.5), rgba(255,255,255,0));
+    pointer-events:none;
+    opacity:0.6;
+    z-index:0;
+  }
+  .love-card > *{position:relative; z-index:1;}
+  .love-title{
+    font-size:clamp(24px,4.5vw,38px);
+    color:#7a2030; margin:6px 0 8px;
+    animation:riseIn 900ms ease both;
+    font-family:var(--title-font),serif;
+    letter-spacing:0.2px;
+  }
+  .love-subtitle{
+    font-size:clamp(14px,2.6vw,20px);
+    color:#8a4a59; margin:0 0 18px;
+    animation:fadeInUp 1000ms ease 120ms both;
+  }
+  .love-tags{
+    display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+    margin:4px 0 14px;
+  }
+  .love-tag{
+    padding:6px 10px; border-radius:999px;
+    background:rgba(255,235,242,0.9); color:#8b3f52;
+    font-size:12px; font-weight:700; box-shadow:0 6px 16px rgba(200,90,140,0.12);
+  }
+  .love-divider{
+    height:1px; width:100%; margin:8px 0 16px;
+    background:linear-gradient(90deg, rgba(255,200,220,0), rgba(255,200,220,0.9), rgba(255,200,220,0));
+  }
+  .gallery{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:14px; margin:16px 0 18px;
+  }
+  .gallery img{
+    width:100%; aspect-ratio:4/3; height:auto; object-fit:cover; border-radius:16px;
+    box-shadow:0 10px 24px rgba(200,90,140,0.18);
+    animation:floaty 4.5s ease-in-out infinite;
+    border:1px solid rgba(255,200,220,0.6);
+    --rot: 0deg;
+  }
+  .gallery img:nth-child(2){animation-delay:0.4s; --rot:-1.5deg}
+  .gallery img:nth-child(3){animation-delay:0.8s; --rot:1.2deg}
+  .gallery img:nth-child(4){animation-delay:1.2s; --rot:-0.8deg}
+  .gallery img:nth-child(5){animation-delay:1.6s; --rot:1.6deg}
+  .love-sign{
+    font-size:16px; color:#7a3a49; font-weight:700;
+    animation:fadeInUp 900ms ease 240ms both;
+  }
+  .love-spark{
+    display:inline-flex; gap:8px; align-items:center; justify-content:center;
+    font-size:14px; color:#a05a6c; margin-top:4px;
+  }
+  @keyframes riseIn{from{opacity:0;transform:translateY(10px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes floaty{0%,100%{transform:translateY(0) rotate(var(--rot))}50%{transform:translateY(-8px) rotate(var(--rot))}}
+  @keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}
+  body.love-active #game,
+  body.love-active .ui,
+  body.love-active #modal,
+  body.love-active .signature{opacity:0; pointer-events:none;}
+  /* small responsive tweaks */
+  @media (max-width:420px){
+    .card{padding:16px;border-radius:14px;}
+    .ui{left:8px;top:8px;padding:6px 9px;border-radius:12px}
+    .love-card{padding:18px;border-radius:16px}
+    .gallery img{aspect-ratio:3/4}
+    .love-title{font-size:22px}
+    .love-subtitle{font-size:14px}
+  }
+  @media (max-width:720px){
+    .love-page{align-items:flex-start}
+    .love-card{margin-top:8px}
+  }
+</style>
+</head>
+<body>
+  <!-- UI -->
+  <div class="ui" aria-hidden="true">
+    <div class="score">❤ <span id="score">0</span></div>
+    <div class="target small">из <strong id="targetCount">12</strong></div>
+  </div>
+
+  <!-- Canvas for game -->
+  <canvas id="game"></canvas>
+
+  <!-- Modal (hidden until win) -->
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="card" id="card">
+      <div style="font-size:36px">💖</div>
+      <h1>Айзирек, ты собрала все сердечки и завоевала моё сердце</h1>
+      <p class="small">С 31 октября 2024 года ты — самая важная часть моей жизни</p>
+      <div class="question">Ты будешь моей Валентиной? ❤️</div>
+      <div class="cta">
+        <button class="btn" id="yesBtn">Да 💕</button>
+        <button class="btn no" id="noBtn" aria-disabled="true">Нет 🙈</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="signature" id="signature">С любовью, Асылбек</div>
+  <!-- Fade transition + Love Page (second screen) -->
+  <div class="transition" id="transition" aria-hidden="true"></div>
+  <section class="love-page" id="lovePage" aria-hidden="true">
+    <div class="love-orb orb-1"></div>
+    <div class="love-orb orb-2"></div>
+    <div class="love-orb orb-3"></div>
+    <div class="love-card">
+      <h2 class="love-title">Я люблю тебя, Айзирек 💖</h2>
+      <div class="love-subtitle">Каждый момент с тобой — бесценен</div>
+      <div class="love-tags">
+        <span class="love-tag">Навсегда</span>
+        <span class="love-tag">Наша история</span>
+        <span class="love-tag">Сердце рядом</span>
+      </div>
+      <div class="love-divider"></div>
+      <div class="gallery">
+        <img src="photo1.jpg" alt="Наше фото 1" />
+        <img src="photo2.jpg" alt="Наше фото 2" />
+        <img src="photo3.jpg" alt="Наше фото 3" />
+        <img src="photo4.jpg" alt="Наше фото 4" />
+      </div>
+      <div class="love-sign">С любовью, Асылбек ❤️</div>
+      <div class="love-spark">✨ навсегда ✨</div>
+    </div>
+  </section>
+
+<script>
+/*
+  Мини-игра-валентинка — всё в одном файле.
+  Управление: тап/клик — переместить сердце-игрока к месту клика.
+  Цель: собрать targetCount сердечек, избегая препятствий.
+  Код структурирован и прокомментирован.
+*/
+
+(() => {
+  // Canvas setup
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+  function resize() {
+    DPR = Math.max(1, window.devicePixelRatio || 1);
+    const vw = window.visualViewport ? window.visualViewport.width : innerWidth;
+    const vh = window.visualViewport ? window.visualViewport.height : innerHeight;
+    canvas.width = Math.round(vw * DPR);
+    canvas.height = Math.round(vh * DPR);
+    canvas.style.width = vw + 'px';
+    canvas.style.height = vh + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // Game configuration
+  const config = {
+    targetCount: 12,          // нужное количество собранных сердечек
+    spawnInterval: 900,       // ms between spawn attempts
+    badSpawnInterval: 1400,   // ms between "bad emotions" spawn
+    obstacleInterval: 1600,
+    maxHeartsOnScreen: 8,
+    maxBadOnScreen: 5,
+    playerSpeed: 0.22,        // interpolation speed to target
+    heartSize: 22,            // base size in CSS px
+    badSize: 20,
+    obstacleSize: 36,
+    gravity: 0.02
+  };
+
+  // UI elements
+  const scoreEl = document.getElementById('score');
+  const targetEl = document.getElementById('targetCount');
+  targetEl.textContent = config.targetCount;
+
+  // Game state
+  let lastTime = 0;
+  let accumSpawn = 0, accumBad = 0, accumObs = 0;
+  let hearts = [];      // collectibles
+  let badEmotions = []; // negative collectibles
+  let obstacles = [];   // obstacles to avoid
+  let particles = [];   // decorative + fireworks
+  let floating = [];    // background floating hearts
+  let score = 0;
+  let running = true;
+  let won = false;
+
+  // Player state
+  const player = {
+    x: innerWidth / 2,
+    y: innerHeight * 0.75,
+    tx: innerWidth / 2,
+    ty: innerHeight / 2,
+    r: config.heartSize * 0.55,
+    wobble: 0
+  };
+
+  // Utilities
+  function rand(min, max){ return Math.random()*(max-min)+min; }
+  function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+
+  // Draw heart shape centered at (x,y) with size s and rotation
+  function drawHeart(ctx, x, y, s, rotate=0, fillStyle='#ff6b8a', stroke=false){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(rotate);
+    ctx.beginPath();
+    const top = -s*0.25;
+    ctx.moveTo(0, s*0.45);
+    ctx.bezierCurveTo(s*0.6, s*0.05, s*0.3, -s*0.6, 0, -s*0.25);
+    ctx.bezierCurveTo(-s*0.3, -s*0.6, -s*0.6, s*0.05, 0, s*0.45);
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    if(stroke){
+      ctx.lineWidth = Math.max(1, s*0.07);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawStar(ctx, x, y, r, color){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.beginPath();
+    for(let i=0;i<10;i++){
+      const angle = (Math.PI/5) * i;
+      const radius = i % 2 === 0 ? r : r * 0.45;
+      ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Background floating hearts (soft, decorative)
+  function spawnFloating(){
+    floating.push({
+      x: rand(0, innerWidth),
+      y: rand(0, innerHeight),
+      s: rand(8, 28),
+      vy: rand(0.1, 0.5),
+      wob: rand(0.001, 0.008),
+      phase: rand(0,Math.PI*2),
+      a: rand(0.15,0.35)
+    });
+  }
+  for(let i=0;i<18;i++) spawnFloating();
+
+  // Spawn a collectible heart
+  function spawnHeart(){
+    if(hearts.length >= config.maxHeartsOnScreen) return;
+    hearts.push({
+      x: rand(60, innerWidth-60),
+      y: rand(60, innerHeight/2),
+      s: rand(config.heartSize*0.8, config.heartSize*1.4),
+      vx: rand(-0.18,0.18),
+      vy: rand(0.02,0.14),
+      phase: rand(0,Math.PI*2),
+      collected:false,
+      rotate: rand(-0.15,0.15)
+    });
+  }
+
+  // Spawn a negative emotion (reduces score)
+  function spawnBad(){
+    if(badEmotions.length >= config.maxBadOnScreen) return;
+    const emojis = ['😈','😒','😢','😡','😤','🙃'];
+    badEmotions.push({
+      x: rand(60, innerWidth-60),
+      y: rand(60, innerHeight/2),
+      s: rand(config.badSize*0.8, config.badSize*1.4),
+      vx: rand(-0.25,0.25),
+      vy: rand(0.04,0.16),
+      phase: rand(0,Math.PI*2),
+      rotate: rand(-0.15,0.15),
+      emoji: emojis[Math.floor(rand(0, emojis.length))]
+    });
+  }
+
+  // Spawn an obstacle (грусть/сомнения)
+  function spawnObstacle(){
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const y = rand(80, innerHeight - 160);
+    obstacles.push({
+      x: side === -1 ? -60 : innerWidth + 60,
+      y,
+      s: rand(config.obstacleSize*0.9, config.obstacleSize*1.3),
+      vx: side === -1 ? rand(0.4, 1.2) : -rand(0.4, 1.2), // moves across screen towards opposite side
+      vy: Math.sin(rand(0,Math.PI*2))*0.2,
+      wob: rand(0.005,0.02),
+      anger: rand(0,Math.PI*2)
+    });
+  }
+
+  // Particles for soft ambient effect and for fireworks
+  function spawnParticle(x,y,options={}){
+    particles.push(Object.assign({
+      x,y,vx:rand(-1,1), vy:rand(-2,-0.2), life:rand(500,1600), t:0,
+      s:rand(2,6), col:`rgba(255,100,150,${rand(0.45,0.95)})`, type:'dot'
+    },options));
+  }
+
+  // Heart-firework particle (for finale)
+  function spawnHeartParticle(x,y,angle,power,color){
+    particles.push({
+      x,y,
+      vx:Math.cos(angle)*power,
+      vy:Math.sin(angle)*power,
+      life:rand(800,1400),
+      t:0,
+      s:rand(8,18),
+      col:color,
+      heart:true,
+      rotate:rand(-0.6,0.6)
+    });
+  }
+
+  // Handle input (pointer down moves target)
+  function onPointer(e){
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    player.tx = px;
+    player.ty = py;
+  }
+  window.addEventListener('pointerdown', onPointer, {passive:false});
+  window.addEventListener('touchstart', onPointer, {passive:false});
+  window.addEventListener('mousedown', onPointer);
+
+  // Simple collision detection (circle)
+  function circleCollide(x1,y1,r1,x2,y2,r2){
+    return ((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)) <= (r1+r2)*(r1+r2);
+  }
+
+  // Main update loop
+  function update(ts){
+    if(!lastTime) lastTime = ts;
+    const dt = Math.min(40, ts - lastTime); // ms
+    lastTime = ts;
+
+    if(!running) {
+      draw(); // draw paused/final states
+      requestAnimationFrame(update);
+      return;
+    }
+
+    accumSpawn += dt;
+    accumBad += dt;
+    accumObs += dt;
+
+    // spawn hearts
+    if(accumSpawn > config.spawnInterval){
+      accumSpawn = 0;
+      if(Math.random() < 0.95) spawnHeart();
+    }
+    // spawn bad emotions
+    if(accumBad > config.badSpawnInterval){
+      accumBad = 0;
+      if(Math.random() < 0.85) spawnBad();
+    }
+    // spawn obstacles
+    if(accumObs > config.obstacleInterval){
+      accumObs = 0;
+      spawnObstacle();
+    }
+
+    // Update floating hearts (background)
+    floating.forEach(f=>{
+      f.y -= f.vy;
+      f.phase += f.wob * dt;
+      f.x += Math.sin(f.phase) * 0.12;
+      if(f.y < -40) { f.y = innerHeight + 40; f.x = rand(0, innerWidth); }
+    });
+
+    // Update hearts (collectibles)
+    hearts.forEach((h,i)=>{
+      h.phase += 0.01 * dt;
+      h.x += h.vx * dt;
+      h.y += h.vy * dt + Math.sin(h.phase)*0.08;
+      h.rotate += 0.001*dt;
+      // wrap horizontally
+      if(h.x < -40) h.x = innerWidth + 40;
+      if(h.x > innerWidth + 40) h.x = -40;
+      // remove if goes too low or collected
+      if(h.y > innerHeight + 80) hearts.splice(i,1);
+    });
+
+    // Update bad emotions
+    badEmotions.forEach((b,i)=>{
+      b.phase += 0.012 * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt + Math.sin(b.phase)*0.1;
+      b.rotate += 0.0012*dt;
+      if(b.x < -40) b.x = innerWidth + 40;
+      if(b.x > innerWidth + 40) b.x = -40;
+      if(b.y > innerHeight + 80) badEmotions.splice(i,1);
+    });
+
+    // Update obstacles
+    obstacles.forEach((o, idx)=>{
+      o.x += o.vx * dt * 0.6;
+      o.y += o.vy * dt;
+      o.anger += o.wob * dt;
+      // small up-down
+      o.y += Math.sin(o.anger) * 0.06;
+      // remove off-screen
+      if(o.x < -120 || o.x > innerWidth + 120) obstacles.splice(idx,1);
+    });
+
+    // Update particles
+    for(let i = particles.length -1; i>=0; i--){
+      const p = particles[i];
+      p.t += dt;
+      if(p.heart){
+        p.vy += 0.01 * (dt/16); // gentle gravity for fireworks
+      } else {
+        p.vy += config.gravity * (dt/16);
+      }
+      p.x += p.vx * (dt/16);
+      p.y += p.vy * (dt/16);
+      if(p.t > p.life) particles.splice(i,1);
+    }
+
+    // Update player movement toward target (smooth interpolation)
+    const dx = player.tx - player.x;
+    const dy = player.ty - player.y;
+    player.x += dx * Math.min(1, config.playerSpeed * (dt/16));
+    player.y += dy * Math.min(1, config.playerSpeed * (dt/16));
+    player.wobble += 0.06 * (dt/16);
+
+    // Spawn some ambient particles around player occasionally
+    if(Math.random() < 0.08) spawnParticle(player.x + rand(-6,6), player.y + rand(-10,10), { life: rand(400,1100), s: rand(1.5,4), col:`rgba(255,120,160,${rand(0.12,0.35)})` });
+
+    // Collisions: player vs hearts
+    for(let i = hearts.length -1; i>=0; i--){
+      const h = hearts[i];
+      if(circleCollide(player.x, player.y, player.r, h.x, h.y, h.s*0.5)){
+        // collect
+        hearts.splice(i,1);
+        score++;
+        scoreEl.textContent = score;
+        // small pop particles
+        for(let p=0;p<10;p++) spawnParticle(h.x, h.y, { vx: rand(-1.8,1.8), vy: rand(-2.8,-0.4), life: rand(300,900), s: rand(2,8), col: `rgba(255,${Math.floor(rand(120,200))},${Math.floor(rand(140,220))},0.95)` });
+        // gentle scale animation (visual, done by particles/heart)
+        // check win
+        if(score >= config.targetCount && !won){
+          won = true;
+          endGame();
+        }
+      }
+    }
+
+    // Collisions: player vs bad emotions (score down)
+    for(let i = badEmotions.length -1; i>=0; i--){
+      const b = badEmotions[i];
+      if(circleCollide(player.x, player.y, player.r, b.x, b.y, b.s*0.5)){
+        badEmotions.splice(i,1);
+        score = Math.max(0, score - 1);
+        scoreEl.textContent = score;
+        for(let p=0;p<10;p++){
+          spawnParticle(b.x, b.y, { vx: rand(-1.6,1.6), vy: rand(-1.6,0.2), life: rand(300,900), s: rand(2,7), col: 'rgba(120,120,140,0.8)' });
+        }
+      }
+    }
+
+    // Collisions: player vs obstacles -> push player slightly
+    for(let i = 0; i < obstacles.length; i++){
+      const o = obstacles[i];
+      if(circleCollide(player.x, player.y, player.r, o.x, o.y, o.s*0.5)){
+        // knockback
+        const angle = Math.atan2(player.y - o.y, player.x - o.x);
+        player.x += Math.cos(angle) * 28;
+        player.y += Math.sin(angle) * 28;
+        // small particle puff
+        for(let p=0;p<8;p++){
+          spawnParticle(o.x + rand(-10,10), o.y + rand(-10,10), { vx: rand(-1.8,1.8), vy: rand(-1.2,0.6), life: rand(300,900), s: rand(3,8), col: 'rgba(180,180,200,0.6)' });
+        }
+      }
+    }
+
+    draw();
+    requestAnimationFrame(update);
+  }
+
+  // Draw everything
+  function draw(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+
+    // gentle vignette gradient
+    const g = ctx.createLinearGradient(0,0,0,innerHeight);
+    g.addColorStop(0, 'rgba(255,245,247,0.9)');
+    g.addColorStop(1, 'rgba(255,240,243,0.9)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,innerWidth,innerHeight);
+
+    // background floating hearts (soft, low alpha)
+    floating.forEach(f=>{
+      ctx.globalAlpha = f.a * 0.7;
+      drawHeart(ctx, f.x, f.y, f.s, Math.sin(f.phase*0.5)*0.2, `rgba(255,150,180,${0.9})`, false);
+      ctx.globalAlpha = 1;
+    });
+
+    // obstacles (draw as sad clouds / cracked hearts stylized)
+    obstacles.forEach(o=>{
+      // draw soft gray blob
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      ctx.beginPath();
+      ctx.ellipse(o.x, o.y, o.s*0.6, o.s*0.45, Math.sin(o.anger)*0.25, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(140,140,160,0.12)';
+      ctx.fill();
+      ctx.restore();
+
+      // broken heart symbol
+      drawHeart(ctx, o.x, o.y, o.s*0.9, Math.sin(o.anger)*0.2, '#d0a0a8');
+      // draw crack
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y - o.s*0.1);
+      ctx.lineTo(o.x + o.s*0.04, o.y + o.s*0.18);
+      ctx.lineTo(o.x - o.s*0.04, o.y + o.s*0.3);
+      ctx.strokeStyle = 'rgba(120,80,90,0.6)';
+      ctx.lineWidth = Math.max(1, o.s*0.06);
+      ctx.stroke();
+    });
+
+    // hearts collectibles
+    hearts.forEach(h=>{
+      drawHeart(ctx, h.x, h.y, h.s, Math.sin(h.phase)*0.06, `rgba(255,${120 + Math.floor(40*Math.sin(h.phase))},${150 + Math.floor(40*Math.cos(h.phase))},0.98)`, true);
+    });
+
+    // bad emotions (emoji)
+    badEmotions.forEach(b=>{
+      const bob = Math.sin(b.phase)*0.06;
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.rotate + bob);
+      ctx.font = `${Math.max(12, b.s*1.6)}px "Apple Color Emoji","Segoe UI Emoji",system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.emoji, 0, 0);
+      ctx.restore();
+    });
+
+    // player (bigger heart with glow)
+    // shadow / glow
+    ctx.beginPath();
+    ctx.ellipse(player.x + 2, player.y + player.r*0.9, player.r*0.9, player.r*0.35, 0, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,120,150,0.06)';
+    ctx.fill();
+
+    // player heart with subtle bob
+    const bob = Math.sin(player.wobble)*6;
+    drawHeart(ctx, player.x, player.y + bob, player.r*1.7, Math.sin(player.wobble)*0.06, '#ff5078', true);
+
+    // particles (ambient and fireworks)
+    particles.forEach(p=>{
+      const alpha = 1 - (p.t / p.life);
+      ctx.globalAlpha = Math.max(0, alpha);
+      if(p.heart){
+        drawHeart(ctx, p.x, p.y, p.s, p.rotate, p.col, true);
+      } else if(p.star){
+        drawStar(ctx, p.x, p.y, p.s, p.col);
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.s, 0, Math.PI*2);
+        ctx.fillStyle = p.col;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    // HUD subtle hint (if mobile)
+    // nothing else
+  }
+
+  // End game and show modal
+  const modal = document.getElementById('modal');
+  const card = document.getElementById('card');
+  function endGame(){
+    running = false;
+    // small delay to let last collect pop
+    setTimeout(()=>{
+      modal.style.pointerEvents = 'auto';
+      modal.setAttribute('aria-hidden','false');
+      card.classList.add('show');
+    }, 420);
+  }
+
+  // Fireworks / hearts on "Yes" click
+  const yesBtn = document.getElementById('yesBtn');
+  const noBtn = document.getElementById('noBtn');
+  const signature = document.getElementById('signature');
+  const transition = document.getElementById('transition');
+  const lovePage = document.getElementById('lovePage');
+  yesBtn.addEventListener('click', ()=> {
+    // hide button to prevent re-clicks
+    yesBtn.disabled = true;
+    // create burst of heart particles from center of card
+    const rect = card.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2 - 20;
+    // convert to canvas coords
+    const rectCan = canvas.getBoundingClientRect();
+    const centerX = (cx - rectCan.left);
+    const centerY = (cy - rectCan.top);
+
+    // spawn multiple rings
+    for(let ring=0; ring<6; ring++){
+      const count = 10 + ring*6;
+      for(let i=0;i<count;i++){
+        const angle = (i/count)*Math.PI*2 + rand(-0.12,0.12);
+        const power = rand(2 + ring*0.7, 5 + ring*1.6);
+        const palettes = ['#ff4f7a','#ff9bb3','#ff6b8a','#ffc6d1','#ff7fa0'];
+        const col = palettes[Math.floor(rand(0,palettes.length))];
+        spawnHeartParticle(centerX, centerY, angle, power, col);
+      }
+    }
+
+    // additional sparkles
+    for(let i=0;i<80;i++){
+      spawnParticle(centerX + rand(-20,20), centerY + rand(-20,20), { vx: rand(-3,3), vy: rand(-4,1), life: rand(400,1000), s: rand(2,6), col: 'rgba(255,220,230,0.9)'});
+    }
+
+    // falling stars (top to bottom)
+    for(let i=0;i<36;i++){
+      spawnParticle(rand(0, innerWidth), rand(-innerHeight, -20), {
+        vx: rand(-0.4,0.4),
+        vy: rand(1.8,3.4),
+        life: rand(900,1800),
+        s: rand(6,12),
+        col: 'rgba(255,240,210,0.95)',
+        star: true
+      });
+    }
+
+    // animate more floating hearts from screen center to bottom
+    for(let i=0;i<28;i++){
+      floating.push({
+        x: centerX + rand(-60,60),
+        y: centerY + rand(-60,60),
+        s: rand(10,28),
+        vy: rand(0.2,1.1),
+        wob: rand(0.001,0.01),
+        phase: rand(0,Math.PI*2),
+        a: rand(0.4,0.95)
+      });
+    }
+
+    // reveal signature text after a short delay
+    setTimeout(()=> signature.classList.add('show'), 900);
+
+    // transition to Love Page
+    setTimeout(()=>{
+      transition.classList.add('show');
+      transition.setAttribute('aria-hidden','false');
+      document.body.classList.add('love-active');
+      lovePage.classList.add('show');
+      lovePage.setAttribute('aria-hidden','false');
+      setTimeout(()=> transition.classList.remove('show'), 520);
+    }, 650);
+  });
+
+  // Make "No" button run away and never be clickable
+  function moveNoButton(){
+    const ctaRect = noBtn.parentElement.getBoundingClientRect();
+    const btnRect = noBtn.getBoundingClientRect();
+    const padding = 6;
+    const maxX = Math.max(padding, ctaRect.width - btnRect.width - padding);
+    const maxY = Math.max(padding, 32);
+    const nextX = rand(-maxX * 0.5, maxX * 0.5);
+    const nextY = rand(-maxY, maxY);
+    noBtn.style.transform = `translate(${nextX}px, ${nextY}px)`;
+  }
+  noBtn.addEventListener('mouseenter', moveNoButton);
+  noBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); moveNoButton(); }, {passive:false});
+  noBtn.addEventListener('focus', moveNoButton);
+  noBtn.addEventListener('click', (e)=>{ e.preventDefault(); moveNoButton(); });
+
+  // Start the loop
+  requestAnimationFrame(update);
+
+  // Accessibility: allow keyboard to simulate click in center
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === ' ' || e.key === 'Enter'){
+      // jump to center to mimic a tap
+      player.tx = innerWidth/2; player.ty = innerHeight/2;
+    }
+  });
+
+  // Small performance guard: pause game when page not visible
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden) running = false;
+    else if(!won) running = true;
+  });
+
+  // Simple initial hint: set player target to middle top so it floats center
+  player.tx = innerWidth/2; player.ty = innerHeight*0.4;
+})();
+</script>
+</body>
+</html>
